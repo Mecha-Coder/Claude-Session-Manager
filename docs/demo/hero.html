@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<!-- The README demo: the real panel.js + panel.css with made-up sessions and callouts. render.js screenshots it;
+     it sets window.__palette from lib/model.js before the page loads. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../media/panel.css">
+<style>
+  :root {
+    --vscode-foreground: #cccccc;
+    --vscode-sideBar-background: #181818;
+    --vscode-descriptionForeground: #9d9d9d;
+    --vscode-input-background: #2a2a2a;
+    --vscode-input-border: #3c3c3c;
+    --vscode-input-foreground: #cccccc;
+    --vscode-input-placeholderForeground: #8b8b8b;
+    --vscode-focusBorder: #0078d4;
+    --vscode-list-hoverBackground: #2a2d2e;
+    --vscode-list-inactiveSelectionBackground: #37373d;
+    --vscode-list-inactiveSelectionForeground: #ffffff;
+    --vscode-sideBarSectionHeader-foreground: #cccccc;
+    --vscode-icon-foreground: #cccccc;
+    --vscode-toolbar-hoverBackground: rgba(90, 93, 94, .31);
+    --vscode-textLink-foreground: #4daafc;
+    --vscode-editorWidget-background: #202020;
+    --vscode-widget-border: #313131;
+    --vscode-widget-shadow: rgba(0, 0, 0, .36);
+    --vscode-button-background: #0078d4;
+    --vscode-button-foreground: #ffffff;
+    --vscode-button-hoverBackground: #026ec1;
+    --vscode-editor-findMatchHighlightBackground: rgba(234, 92, 0, .33);
+    --vscode-list-dropBackground: #383b3d;
+    --vscode-errorForeground: #f85149;
+    --vscode-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --vscode-font-size: 13px;
+  }
+  html, body { background: #0d1117; }
+  body { width: 1200px; height: 760px; overflow: hidden; position: relative; }
+  #list { min-height: 0; }
+  .stage-title { position: absolute; left: 0; right: 0; top: 34px; text-align: center; }
+  .stage-title h1 { margin: 0; font: 700 40px/1.15 -apple-system, BlinkMacSystemFont, sans-serif; color: #f0f6fc; letter-spacing: -.01em; }
+  .stage-title p { margin: 10px 0 0; font: 400 18px/1.4 -apple-system, BlinkMacSystemFont, sans-serif; color: #9aa4b2; }
+  .window {
+    position: absolute; left: 70px; top: 150px; width: 432px; height: 570px;
+    border: 1px solid #30363d; border-radius: 10px; overflow: hidden; background: #181818;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .55);
+  }
+  .titlebar { height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #1f1f1f; border-bottom: 1px solid #2b2b2b; }
+  .titlebar i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+  .wbody { display: flex; height: calc(100% - 31px); }
+  .activity { width: 48px; flex: none; background: #181818; border-right: 1px solid #2b2b2b; display: flex; flex-direction: column; align-items: center; padding-top: 6px; gap: 4px; }
+  .ab { width: 48px; height: 44px; display: grid; place-items: center; color: #7d7d7d; position: relative; }
+  .ab.on { color: #e7e7e7; box-shadow: inset 2px 0 0 #0078d4; }
+  .ab .badge { position: absolute; right: 7px; bottom: 7px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #0078d4; color: #fff; font: 600 10px/16px -apple-system, sans-serif; text-align: center; }
+  .sidebar { flex: 1; min-width: 0; position: relative; }
+  .side-head { height: 35px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 20px; font: 400 11px -apple-system, sans-serif; letter-spacing: .02em; color: #cccccc; }
+  .side-head .acts { display: flex; gap: 10px; color: #cccccc; }
+  .callout { position: absolute; left: 600px; width: 520px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+  .callout b { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; color: #f0f6fc; }
+  .callout b i { width: 12px; height: 12px; border-radius: 50%; display: block; flex: none; }
+  .callout span { display: block; margin: 4px 0 0 22px; font-size: 15px; color: #9aa4b2; }
+  svg.wires { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+</style>
+<script>
+  window.acquireVsCodeApi = () => ({ postMessage: () => {}, getState: () => null, setState: () => {} });
+</script>
+</head>
+<body>
+<div class="stage-title">
+  <h1>Claude Session Manager</h1>
+  <p>Every Claude Code tab in one sidebar: see what's working, what needs you, and what just finished.</p>
+</div>
+
+<div class="window">
+  <div class="titlebar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+  <div class="wbody">
+    <div class="activity">
+      <div class="ab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg></div>
+      <div class="ab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg></div>
+      <div class="ab"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="9" r="2.5"/><path d="M6 8.5v7M18 11.5c0 3-4 3.5-10 5"/></svg></div>
+      <div class="ab on"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="4" height="4" rx="1" fill="currentColor"/><line x1="10" y1="5" x2="21" y2="5"/><line x1="6" y1="10" x2="6" y2="15"/><line x1="10" y1="10" x2="20" y2="10"/><line x1="10" y1="15" x2="18" y2="15"/><rect x="3" y="18" width="4" height="4" rx="1" fill="currentColor"/><line x1="10" y1="20" x2="21" y2="20"/></svg><span class="badge">3</span></div>
+    </div>
+    <div class="sidebar">
+      <div class="side-head"><span>CLAUDE SESSIONS: OPEN SESSIONS</span>
+        <span class="acts">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M8 3v10M3 8h10"/></svg>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M1.5 4.5h4l1.5 1.5h7.5v7h-13z"/><path d="M11 8v4M9 10h4"/></svg>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2.5" y="2.5" width="11" height="11" rx="1"/><path d="M5.5 8h5"/></svg>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/></svg>
+        </span>
+      </div>
+      <div id="toolbar" class="toolbar"></div>
+      <div id="notice" class="notice" role="status" hidden></div>
+      <div id="list" role="tree" aria-label="Claude Code sessions" tabindex="0"></div>
+    </div>
+  </div>
+</div>
+
+<svg class="wires" id="wires"></svg>
+<div id="callouts"></div>
+
+<script src="../../media/panel.js"></script>
+<script>
+  const now = Date.now();
+  const r = (key, title, status, tokens, extra = {}) => ({ key, title, status, tokens, model: 'claude-opus', activity: now - 3 * 60000, active: false, canArchive: true, ...extra });
+  const model = {
+    type: 'model',
+    colors: window.__palette,
+    pinned: [r('p1', 'Release checklist v2.4', 'idle', 84210)],
+    groups: [
+      { id: 'g1', name: 'Backend', color: 'sky', collapsed: false, rows: [
+        r('a', 'Fix flaky payment webhook test', 'working', 148320),
+        r('b', 'Add rate limiting to public API', 'needs-input', 96400, { waitingFor: 'input needed' }),
+        r('c', 'Migrate cron jobs to queue workers', 'idle', 203100, { active: true }),
+      ] },
+      { id: 'g2', name: 'Frontend', color: 'pink', collapsed: false, rows: [
+        r('d', 'Dashboard dark mode polish', 'done', 61200),
+        r('e', 'Refactor settings form validation', 'working', 211700),
+      ] },
+      { id: 'g3', name: 'Docs', color: 'lemon', collapsed: false, rows: [
+        r('f', 'Write onboarding guide', 'done', 37900),
+        r('h', 'API reference cleanup', 'idle', 52300),
+      ] },
+      { id: 'g4', name: 'Research', color: 'violet', collapsed: true, rows: [r('i', 'Vector search spike', 'idle', 99000), r('j', 'Cost model notes', 'idle', 12000)] },
+    ],
+    ungrouped: [r('u1', 'Spike: streaming responses', 'stopped', 15800)],
+    archived: [1, 2, 3, 4, 5].map((i) => ({ key: `z${i}`, title: `Old session ${i}`, at: now - i * 86400000 })),
+    archivedCollapsed: true,
+    notice: '',
+    empty: false,
+  };
+  window.postMessage(model, '*');
+
+  // Callouts: a label on the right, wired to the row it describes.
+  const CALLOUTS = [
+    { find: () => document.querySelector('.group[data-gid="g1"] .chip'), dot: '#8ab4f8', title: 'Color groups', text: 'Name and color them inline. Drag sessions and groups to reorder.' },
+    { find: () => document.querySelector('.row[data-key="a"]'), dot: '#ffffff', title: 'Working', text: 'Spins while Claude works, background agents and tasks included.' },
+    { find: () => document.querySelector('.row[data-key="b"]'), dot: '#ff9500', title: 'Needs input', text: 'Claude is asking you something. Never miss a question again.' },
+    { find: () => document.querySelector('.row[data-key="d"]'), dot: '#3fd15a', title: 'Done', text: 'Finished while you were away. Stays until you look.' },
+  ];
+  window.drawCallouts = () => {
+    const wires = document.getElementById('wires');
+    const box = document.getElementById('callouts');
+    const win = document.querySelector('.window').getBoundingClientRect();
+    wires.innerHTML = '';
+    box.innerHTML = '';
+    let lastY = 0;
+    for (const c of CALLOUTS) {
+      const t = c.find().getBoundingClientRect();
+      const y = t.top + t.height / 2;
+      const labelY = Math.max(y, lastY + 92);
+      lastY = labelY;
+      const el = document.createElement('div');
+      el.className = 'callout';
+      el.style.top = `${labelY - 12}px`;
+      el.innerHTML = `<b><i style="background:${c.dot}"></i>${c.title}</b><span>${c.text}</span>`;
+      box.append(el);
+      const x1 = win.right + 5;
+      const x2 = 590;
+      // Elbow lines; a lower row turns earlier, so no two lines cross.
+      const xm = 576 - CALLOUTS.indexOf(c) * 18;
+      const ns = 'http://www.w3.org/2000/svg';
+      const path = document.createElementNS(ns, 'path');
+      path.setAttribute('d', labelY - y < 1
+        ? `M${x1} ${y} H${x2}`
+        : `M${x1} ${y} H${xm - 8} Q${xm} ${y} ${xm} ${y + 8} V${labelY - 8} Q${xm} ${labelY} ${xm + 8} ${labelY} H${x2}`);
+      path.setAttribute('stroke', c.dot);
+      path.setAttribute('stroke-opacity', '.55');
+      path.setAttribute('stroke-width', '1.5');
+      path.setAttribute('fill', 'none');
+      wires.append(path);
+      const dot = document.createElementNS(ns, 'circle');
+      dot.setAttribute('cx', x1);
+      dot.setAttribute('cy', y);
+      dot.setAttribute('r', 3);
+      dot.setAttribute('fill', c.dot);
+      wires.append(dot);
+    }
+  };
+</script>
+</body>
+</html>

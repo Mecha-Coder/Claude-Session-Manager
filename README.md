@@ -179,6 +179,8 @@ Plain JavaScript (CommonJS), no build step, no runtime dependencies, no npm inst
 | `media/panel.css` | All styling. Uses VS Code theme variables, except the fixed status and group colors. |
 | `media/tabs.svg` | Activity Bar icon. |
 | `docs/demo.gif`, `docs/demo.png` | README demo image: the real `panel.js`/`panel.css` rendered with made-up sessions. Not packaged into the `.vsix`. |
+| `docs/demo/hero.html`, `docs/demo/render.js` | The demo page (real panel code, mock data, callouts) and the script that renders `demo.png` and `demo.gif` from it. |
+| `CLAUDE.md` (`AGENTS.md` links to it) | Rules for AI agents working on this repo. |
 | `test/*.test.js` | `node:test` unit tests for the three `lib/` files (34 tests). |
 | `package.sh` | Builds the `.vsix` by hand (a zip with the same layout `vsce` produces), because `vsce` is not needed for local installs. |
 
@@ -341,7 +343,7 @@ code --install-extension claude-tab-groups-<version>.vsix --force
 
 - Bump `version` in `package.json` for every install, so VS Code replaces the old copy.
 - Tests cover `lib/` only. Each test says why the behavior matters; several were checked by breaking the code and watching them fail.
-- UI changes were checked by loading `media/panel.js` and `media/panel.css` in a plain HTML page with a fake `acquireVsCodeApi()` and a fake `model` message, then taking Playwright screenshots in dark and light themes and driving drags and the group editor. That harness is not part of the repo.
+- UI changes are checked by loading `media/panel.js` and `media/panel.css` in a plain HTML page with a fake `acquireVsCodeApi()` and a fake `model` message, then taking Playwright screenshots in dark and light themes and driving drags and the group editor. `docs/demo/hero.html` is such a page; `node docs/demo/render.js` re-renders the README demo from it (setup in the file header).
 - **Claude Sessions: Diagnose** (title bar `…`) prints how each tab was matched, and running Claude sessions not shown in this window.
 
 **Release a new version** (makes it installable with the command in §1):
