@@ -1,0 +1,352 @@
+/* Claude Session Manager — sidebar panel. All colors come from the VS Code theme. */
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  line-height: 1.4;
+  user-select: none;
+  --row: 24px;
+}
+
+button { font: inherit; color: inherit; }
+
+.probe { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* ------------------------------------------------------------ search */
+
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 6px 8px 4px;
+  background: var(--vscode-sideBar-background);
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 2px 0 6px;
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 4px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+}
+.search:focus-within { border-color: var(--vscode-focusBorder); }
+.search > svg { flex: none; opacity: .75; }
+.search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.search input::placeholder { color: var(--vscode-input-placeholderForeground); }
+
+.notice {
+  margin: 4px 8px;
+  padding: 6px 8px;
+  border-left: 3px solid var(--vscode-editorWarning-foreground, #cca700);
+  background: var(--vscode-inputValidation-warningBackground, transparent);
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------ rows */
+
+#list {
+  outline: none;
+  padding-bottom: 12px;
+  min-height: calc(100vh - 40px); /* the space below the list is a drop target too */
+}
+
+.row, .group-head, .section-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--row);
+  padding: 0 6px 0 8px;
+  cursor: pointer;
+  outline: none;
+}
+.row:hover, .group-head:hover, .section-head.toggle:hover { background: var(--vscode-list-hoverBackground); }
+.row.active {
+  background: var(--vscode-list-inactiveSelectionBackground);
+  color: var(--vscode-list-inactiveSelectionForeground, inherit);
+}
+.row:focus-visible, .group-head:focus-visible, .section-head:focus-visible {
+  outline: 1px solid var(--vscode-list-focusOutline, var(--vscode-focusBorder));
+  outline-offset: -1px;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.unread .title { font-weight: 600; }
+.title mark {
+  border-radius: 2px;
+  background: var(--vscode-editor-findMatchHighlightBackground);
+  color: inherit;
+}
+
+.meta { flex: none; display: flex; align-items: center; gap: 6px; }
+.tokens {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  font-variant-numeric: tabular-nums;
+}
+/* Fixed bright colors, not theme colors: these two must stand out in every theme. */
+body { --ask: #ff9500; --done: #3fd15a; }
+.pill {
+  padding: 0 6px;
+  border-radius: 8px;
+  line-height: 16px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+.pill.ask { background: var(--ask); }
+.pill.done { background: var(--done); }
+
+.actions { flex: none; display: none; gap: 1px; }
+.row:hover .actions, .row:focus-within .actions,
+.group-head:hover .actions, .group-head:focus-within .actions { display: flex; }
+.row:hover .meta, .row:focus-within .meta { display: none; }
+
+.icon {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-icon-foreground, inherit);
+  cursor: pointer;
+}
+.icon:hover { background: var(--vscode-toolbar-hoverBackground); }
+.icon:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
+.icon.on { color: var(--vscode-textLink-foreground); }
+
+/* ------------------------------------------------------------ status dots */
+
+.status {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+}
+.status::after {
+  content: '';
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.s-working::after { display: none; }
+.s-working svg { display: block; animation: spin .8s linear infinite; }
+.s-needs-input::after {
+  width: 10px;
+  height: 10px;
+  background: var(--ask);
+  animation: pulse 1.6s ease-out infinite;
+}
+.s-done::after {
+  width: 10px;
+  height: 10px;
+  background: var(--done);
+  animation: pulse-done 1.6s ease-out infinite;
+}
+.s-idle::after { width: 6px; height: 6px; background: var(--vscode-descriptionForeground); opacity: .7; }
+.s-stopped::after { border: 1.5px solid var(--vscode-descriptionForeground); opacity: .7; }
+.s-unknown::after { border: 1.5px dashed var(--vscode-descriptionForeground); opacity: .7; }
+.s-archived::after { display: none; }
+.s-archived svg { opacity: .75; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ask) 70%, transparent); }
+  100% { box-shadow: 0 0 0 6px transparent; }
+}
+@keyframes pulse-done {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--done) 70%, transparent); }
+  100% { box-shadow: 0 0 0 6px transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .s-working svg, .s-needs-input::after, .s-done::after { animation: none; }
+}
+
+/* ------------------------------------------------------------ groups */
+
+.group-head { padding-left: 2px; }
+.chevron {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  transition: transform .1s;
+}
+.chevron.open { transform: rotate(90deg); }
+
+/* The colored name tag, like a browser tab group. */
+.chip {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 0 8px;
+  border-radius: 4px;
+  line-height: 18px;
+  font-weight: 600;
+  background: var(--c);
+}
+.count { flex: none; font-size: 11px; color: var(--vscode-descriptionForeground); }
+.group-head .actions { margin-left: auto; }
+
+/* The group's colored line down the left of its sessions. */
+.group-body .row, .hint { padding-left: 20px; }
+.group-body .row::before, .hint::before {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--c);
+}
+.hint {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--row);
+  font-size: 12px;
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* ------------------------------------------------------------ sections */
+
+.section-head {
+  margin-top: 6px;
+  cursor: default;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
+}
+.section-head.toggle { cursor: pointer; }
+.section-head .count { font-weight: 400; letter-spacing: 0; }
+.section.empty { display: none; }
+/* An empty Ungrouped shows up as a drop target while dragging. It sits below the groups, so nothing
+   above the pointer moves. An empty Pinned stays hidden: at the top it would push the whole list down. */
+body.drag-row .section.empty[data-list="ungrouped"] { display: block; }
+.archived-row .title { color: var(--vscode-descriptionForeground); }
+
+/* ------------------------------------------------------------ group editor */
+
+.editor {
+  margin: 2px 8px 6px 20px;
+  padding: 8px;
+  border: 1px solid var(--vscode-widget-border, var(--vscode-contrastBorder, transparent));
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background);
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, transparent);
+  cursor: default;
+}
+.editor input {
+  width: 100%;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 4px;
+  outline: none;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  font: inherit;
+}
+.editor input:focus { border-color: var(--vscode-focusBorder); }
+.swatches { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; max-width: calc(8 * 18px + 7 * 7px); } /* 8 a row: light over deep */
+.swatch {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--c);
+  cursor: pointer;
+}
+.swatch.selected {
+  box-shadow: 0 0 0 2px var(--vscode-editorWidget-background), 0 0 0 4px var(--vscode-focusBorder);
+}
+.swatch:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 3px; }
+.editor-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--vscode-textLink-foreground);
+}
+.link:hover { text-decoration: underline; }
+.link.danger { color: var(--vscode-errorForeground); }
+
+/* ------------------------------------------------------------ drag and drop */
+
+.dragging { opacity: .45; }
+.drop-line {
+  position: fixed;
+  right: 8px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--vscode-focusBorder);
+  pointer-events: none;
+  z-index: 5;
+}
+.drop-into {
+  background: var(--vscode-list-dropBackground) !important;
+  outline: 1px dashed var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+/* ------------------------------------------------------------ empty states */
+
+.empty-state { padding: 12px; color: var(--vscode-descriptionForeground); }
+.empty-state p { margin: 0 0 10px; }
+.primary {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  cursor: pointer;
+}
+.primary:hover { background: var(--vscode-button-hoverBackground); }
+.no-match { padding: 8px 12px; color: var(--vscode-descriptionForeground); }

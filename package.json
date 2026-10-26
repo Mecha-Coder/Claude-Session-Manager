@@ -1,0 +1,321 @@
+{
+	"name": "claude-tab-groups",
+	"displayName": "Claude Session Manager",
+	"description": "A vertical list of your open Claude Code sessions with live status, colored groups, pins and an archive — like tab groups in a browser.",
+	"version": "0.3.4",
+	"publisher": "local",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Mecha-Coder/Claude-Session-Manager.git"
+	},
+	"engines": {
+		"vscode": "^1.85.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"keywords": [
+		"claude",
+		"claude code",
+		"sessions",
+		"vertical tabs",
+		"tab groups"
+	],
+	"main": "./extension.js",
+	"scripts": {
+		"test": "node --test test/*.test.js",
+		"package": "sh package.sh"
+	},
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"contributes": {
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "claudeTabGroups",
+					"title": "Claude Sessions",
+					"icon": "media/tabs.svg"
+				}
+			]
+		},
+		"views": {
+			"claudeTabGroups": [
+				{
+					"type": "webview",
+					"id": "claudeTabGroups.view",
+					"name": "Open Sessions"
+				}
+			]
+		},
+		"commands": [
+			{
+				"command": "claudeTabGroups.newSession",
+				"title": "New Claude Session",
+				"icon": "$(add)",
+				"category": "Claude Sessions"
+			},
+			{
+				"command": "claudeTabGroups.newGroup",
+				"title": "New Group",
+				"icon": "$(new-folder)",
+				"category": "Claude Sessions"
+			},
+			{
+				"command": "claudeTabGroups.collapseAll",
+				"title": "Collapse All Groups",
+				"icon": "$(collapse-all)",
+				"category": "Claude Sessions"
+			},
+			{
+				"command": "claudeTabGroups.expandAll",
+				"title": "Expand All Groups",
+				"icon": "$(expand-all)",
+				"category": "Claude Sessions"
+			},
+			{
+				"command": "claudeTabGroups.quickJump",
+				"title": "Jump to Session…",
+				"icon": "$(go-to-file)",
+				"category": "Claude Sessions"
+			},
+			{
+				"command": "claudeTabGroups.moveActiveToGroup",
+				"title": "Move Current Session to Group…",
+				"category": "Claude Sessions"
+			},
+			{
+				"command": "claudeTabGroups.diagnose",
+				"title": "Diagnose: Show How Tabs Match Sessions",
+				"category": "Claude Sessions"
+			},
+			{
+				"command": "claudeTabGroups.ctx.pin",
+				"title": "Pin to Top"
+			},
+			{
+				"command": "claudeTabGroups.ctx.unpin",
+				"title": "Unpin"
+			},
+			{
+				"command": "claudeTabGroups.ctx.moveToGroup",
+				"title": "Move to Group…"
+			},
+			{
+				"command": "claudeTabGroups.ctx.copyId",
+				"title": "Copy Session ID"
+			},
+			{
+				"command": "claudeTabGroups.ctx.archive",
+				"title": "Archive (Close Tab, Keep Here to Reopen)"
+			},
+			{
+				"command": "claudeTabGroups.ctx.close",
+				"title": "Close Tab"
+			},
+			{
+				"command": "claudeTabGroups.ctx.newSessionInGroup",
+				"title": "New Claude Session in This Group"
+			},
+			{
+				"command": "claudeTabGroups.ctx.editGroup",
+				"title": "Rename or Change Color…"
+			},
+			{
+				"command": "claudeTabGroups.ctx.closeGroupTabs",
+				"title": "Close All Tabs in Group"
+			},
+			{
+				"command": "claudeTabGroups.ctx.deleteGroup",
+				"title": "Delete Group (Keep Tabs Open)"
+			},
+			{
+				"command": "claudeTabGroups.ctx.reopen",
+				"title": "Reopen"
+			},
+			{
+				"command": "claudeTabGroups.ctx.forget",
+				"title": "Remove from Archive"
+			}
+		],
+		"menus": {
+			"view/title": [
+				{
+					"command": "claudeTabGroups.newSession",
+					"when": "view == claudeTabGroups.view",
+					"group": "navigation@1"
+				},
+				{
+					"command": "claudeTabGroups.newGroup",
+					"when": "view == claudeTabGroups.view",
+					"group": "navigation@2"
+				},
+				{
+					"command": "claudeTabGroups.collapseAll",
+					"when": "view == claudeTabGroups.view",
+					"group": "navigation@3"
+				},
+				{
+					"command": "claudeTabGroups.expandAll",
+					"when": "view == claudeTabGroups.view",
+					"group": "1_view@1"
+				},
+				{
+					"command": "claudeTabGroups.quickJump",
+					"when": "view == claudeTabGroups.view",
+					"group": "1_view@2"
+				},
+				{
+					"command": "claudeTabGroups.diagnose",
+					"when": "view == claudeTabGroups.view",
+					"group": "3_diag@1"
+				}
+			],
+			"webview/context": [
+				{
+					"command": "claudeTabGroups.ctx.pin",
+					"when": "webviewId == 'claudeTabGroups.view' && webviewSection == 'session' && !pinned",
+					"group": "1_place@1"
+				},
+				{
+					"command": "claudeTabGroups.ctx.unpin",
+					"when": "webviewId == 'claudeTabGroups.view' && webviewSection == 'session' && pinned",
+					"group": "1_place@1"
+				},
+				{
+					"command": "claudeTabGroups.ctx.moveToGroup",
+					"when": "webviewId == 'claudeTabGroups.view' && webviewSection == 'session'",
+					"group": "1_place@2"
+				},
+				{
+					"command": "claudeTabGroups.ctx.copyId",
+					"when": "webviewId == 'claudeTabGroups.view' && webviewSection == 'session' && canArchive",
+					"group": "1_place@3"
+				},
+				{
+					"command": "claudeTabGroups.ctx.archive",
+					"when": "webviewId == 'claudeTabGroups.view' && webviewSection == 'session' && canArchive",
+					"group": "2_close@1"
+				},
+				{
+					"command": "claudeTabGroups.ctx.close",
+					"when": "webviewId == 'claudeTabGroups.view' && webviewSection == 'session'",
+					"group": "2_close@2"
+				},
+				{
+					"command": "claudeTabGroups.ctx.newSessionInGroup",
+					"when": "webviewId == 'claudeTabGroups.view' && webviewSection == 'group'",
+					"group": "1_edit@1"
+				},
+				{
+					"command": "claudeTabGroups.ctx.editGroup",
+					"when": "webviewId == 'claudeTabGroups.view' && webviewSection == 'group'",
+					"group": "1_edit@2"
+				},
+				{
+					"command": "claudeTabGroups.ctx.closeGroupTabs",
+					"when": "webviewId == 'claudeTabGroups.view' && webviewSection == 'group'",
+					"group": "2_close@1"
+				},
+				{
+					"command": "claudeTabGroups.ctx.deleteGroup",
+					"when": "webviewId == 'claudeTabGroups.view' && webviewSection == 'group'",
+					"group": "2_close@2"
+				},
+				{
+					"command": "claudeTabGroups.ctx.reopen",
+					"when": "webviewId == 'claudeTabGroups.view' && webviewSection == 'archived'",
+					"group": "1_archive@1"
+				},
+				{
+					"command": "claudeTabGroups.ctx.forget",
+					"when": "webviewId == 'claudeTabGroups.view' && webviewSection == 'archived'",
+					"group": "1_archive@2"
+				},
+				{
+					"command": "claudeTabGroups.ctx.copyId",
+					"when": "webviewId == 'claudeTabGroups.view' && webviewSection == 'archived'",
+					"group": "2_copy@1"
+				}
+			],
+			"commandPalette": [
+				{
+					"command": "claudeTabGroups.ctx.pin",
+					"when": "false"
+				},
+				{
+					"command": "claudeTabGroups.ctx.unpin",
+					"when": "false"
+				},
+				{
+					"command": "claudeTabGroups.ctx.moveToGroup",
+					"when": "false"
+				},
+				{
+					"command": "claudeTabGroups.ctx.copyId",
+					"when": "false"
+				},
+				{
+					"command": "claudeTabGroups.ctx.archive",
+					"when": "false"
+				},
+				{
+					"command": "claudeTabGroups.ctx.close",
+					"when": "false"
+				},
+				{
+					"command": "claudeTabGroups.ctx.newSessionInGroup",
+					"when": "false"
+				},
+				{
+					"command": "claudeTabGroups.ctx.editGroup",
+					"when": "false"
+				},
+				{
+					"command": "claudeTabGroups.ctx.closeGroupTabs",
+					"when": "false"
+				},
+				{
+					"command": "claudeTabGroups.ctx.deleteGroup",
+					"when": "false"
+				},
+				{
+					"command": "claudeTabGroups.ctx.reopen",
+					"when": "false"
+				},
+				{
+					"command": "claudeTabGroups.ctx.forget",
+					"when": "false"
+				}
+			]
+		},
+		"keybindings": [
+			{
+				"command": "claudeTabGroups.quickJump",
+				"key": "ctrl+alt+j",
+				"mac": "cmd+alt+j"
+			},
+			{
+				"command": "claudeTabGroups.moveActiveToGroup",
+				"key": "ctrl+alt+g",
+				"mac": "cmd+alt+g"
+			}
+		],
+		"configuration": {
+			"title": "Claude Session Manager",
+			"properties": {
+				"claudeTabGroups.viewTypePattern": {
+					"type": "string",
+					"default": "claudeVSCodePanel",
+					"description": "Case-insensitive regular expression matched against a webview tab's view type to decide whether it is a Claude Code tab. Run 'Claude Sessions: Diagnose' if your Claude tabs don't show up."
+				},
+				"claudeTabGroups.newSessionCommand": {
+					"type": "string",
+					"default": "claude-vscode.editor.open",
+					"description": "Command used to open a new Claude Code tab (the + buttons)."
+				}
+			}
+		}
+	}
+}
