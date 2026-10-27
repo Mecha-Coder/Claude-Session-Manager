@@ -177,11 +177,11 @@ class Panel {
     const tabs = claudeTabs().map((e) => ({ ...e, id: this.tabId(e.tab), label: e.tab.label }));
     const live = sessions.readLiveSessions();
     const folders = (vscode.workspace.workspaceFolders || []).map((f) => f.uri.fsPath);
-    const inWorkspace = (cwd) => !folders.length || folders.some((f) => cwd === f || String(cwd).startsWith(`${f}/`));
+    const ps = sessions.readProcesses();
 
-    // Sessions running in VS Code for this workspace, with their title and context size.
-    const known = live.sessions
-      .filter((s) => s.entrypoint === 'claude-vscode' && inWorkspace(s.cwd))
+    // Sessions running in VS Code for this window, with their title and context size.
+    const known = sessions
+      .windowSessions(live.sessions, process.pid, sessions.parentPids(ps), folders)
       .map((s) => ({ sessionId: s.sessionId, live: s, info: this.transcripts.get(sessions.transcriptPath(s.cwd, s.sessionId)), updatedAt: s.updatedAt }));
     // Tabs Claude Code restored after a reload have no running session yet: look their titles up on disk.
     const runningTitles = new Set(known.map((k) => k.info && k.info.title && cut(k.info.title)).filter(Boolean));
@@ -220,9 +220,9 @@ class Panel {
     // it, or click its row) or the session starts working again.
     const focused = vscode.window.state.focused;
     const lookingNow = new Set();
-    // Only an idle session can be hiding a background command or agent, so skip these checks otherwise.
+    // Only an idle session can be hiding a background command or agent, so only idle ones are checked.
     const idle = live.sessions.filter((l) => l.status === 'idle');
-    const background = idle.length ? sessions.readBackgroundPids() : new Set();
+    const background = sessions.backgroundPids(ps);
     for (const l of idle) {
       if (sessions.hasRunningAgent(sessions.subagentsDir(l.cwd, l.sessionId), l.startedAt)) background.add(l.pid);
     }

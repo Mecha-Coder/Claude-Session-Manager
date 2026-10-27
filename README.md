@@ -14,7 +14,7 @@ A VS Code sidebar that lists every open Claude Code tab with its live status, so
 - **Badge** on the sidebar icon counts the sessions that need you. **Search**, keyboard navigation, **Jump to session** (`Cmd+Alt+J`), **Copy Session ID**.
 - **Read-only and local**: it only reads files Claude Code already writes. No hooks, no settings changes, no network.
 
-> Personal project, not made by or affiliated with Anthropic. It reads files that Claude Code writes for its own use. They are not a public API, so a Claude Code update can break the panel. Built and tested on macOS with Claude Code 2.1.306–2.1.308.
+> Personal project, not made by or affiliated with Anthropic. It reads files that Claude Code writes for its own use. They are not a public API, so a Claude Code update can break the panel. Built and tested on macOS with Claude Code 2.1.306–2.1.310.
 
 ---
 
@@ -172,7 +172,7 @@ Plain JavaScript (CommonJS), no build step, no runtime dependencies, no npm inst
 |---|---|
 | `package.json` | Manifest: view container, webview view, commands, menus (`view/title`, `webview/context`, `commandPalette` hiding), keybindings, settings. Extension id `local.claude-tab-groups`. |
 | `extension.js` | Extension host side. The `Panel` class: finds Claude tabs, reads live status, matches tabs to sessions, works out each row's status, keeps the layout state, posts the model to the webview, and handles every action. Also `activate()` with all command registrations. |
-| `lib/sessions.js` | Reads Claude Code's files: live status files, transcripts (title, context size, unanswered question), helper-agent files, and the process list for background commands. No VS Code dependency, so it is unit-tested. |
+| `lib/sessions.js` | Reads Claude Code's files: live status files, transcripts (title, context size, unanswered question), helper-agent files, and the process list (background commands, and which sessions this window started). No VS Code dependency, so it is unit-tested. |
 | `lib/match.js` | `bindTabs()`: decides which session each tab shows, from tab titles only. Pure function, unit-tested. |
 | `lib/model.js` | The saved layout (groups, lists, pins, archive) and every rule that changes it. Pure functions, unit-tested. Also the 16-color `PALETTE`. |
 | `media/panel.js` | The webview page: draws the model, search, inline group editor, drag and drop, keyboard, and posts user actions back. |
@@ -181,7 +181,7 @@ Plain JavaScript (CommonJS), no build step, no runtime dependencies, no npm inst
 | `docs/demo.gif`, `docs/demo.png` | README demo image: the real `panel.js`/`panel.css` rendered with made-up sessions. Not packaged into the `.vsix`. |
 | `docs/demo/hero.html`, `docs/demo/render.js` | The demo page (real panel code, mock data, callouts) and the script that renders `demo.png` and `demo.gif` from it. |
 | `CLAUDE.md` (`AGENTS.md` links to it) | Rules for AI agents working on this repo. |
-| `test/*.test.js` | `node:test` unit tests for the three `lib/` files (34 tests). |
+| `test/*.test.js` | `node:test` unit tests for the three `lib/` files (36 tests). |
 | `package.sh` | Builds the `.vsix` by hand (a zip with the same layout `vsce` produces), because `vsce` is not needed for local installs. |
 
 ### 3.2 Two halves and how they talk
@@ -217,7 +217,7 @@ Right-click menu items are native VS Code menus: each element carries a `data-vs
 | `~/.claude/sessions/<pid>.json` (one per running Claude process) | `pid`, `sessionId`, `cwd`, `entrypoint` (`claude-vscode` for VS Code tabs), `status` (`busy` / `waiting` / `idle`), `waitingFor` (e.g. `"input needed"`), `statusUpdatedAt`, `startedAt` |
 | `~/.claude/projects/<cwd with every non-alphanumeric char → "-">/<sessionId>.jsonl` (transcript) | Title: last `customTitle` (set by Claude Code's rename), else last `aiTitle`. Context size and model: last main-chain assistant line with `usage`. Whether that reply was an `AskUserQuestion`. Only the first 32 KB and last 256 KB are read. |
 | `<project folder>/<sessionId>/subagents/agent-<id>.meta.json` | `requestShape` (`background` / `foreground`), `finished`, `stoppedByUser`: is a background helper agent still running |
-| `ps -A -o ppid=,command=` | A child of the Claude process whose command contains `/.claude/shell-snapshots/` is a shell Claude started, i.e. a running command |
+| `ps -A -o pid=,ppid=,command=` (once per refresh) | A child of the Claude process whose command contains `/.claude/shell-snapshots/` is a shell Claude started, i.e. a running command. A Claude process whose parent is this window's extension host (`process.pid`, the process this extension runs in) is a session this window started |
 | Claude Code's webview tab | View type contains `claudeVSCodePanel`; tab title = session title cut to 25 characters (see §5) |
 | Command `claude-vscode.editor.open [sessionId]` | With no argument opens a new Claude tab; with a session id shows or reopens that session |
 
@@ -238,7 +238,7 @@ A refresh rebuilds everything from scratch and is cheap. It runs:
 Steps:
 
 1. **Find Claude tabs**: every tab whose input is a webview/custom editor with a matching view type, in visual order. Each `Tab` object gets a stable numeric id (a `WeakMap`).
-2. **Read live sessions** from `~/.claude/sessions/*.json`. Skip dead pids (`process.kill(pid, 0)`) and half-written files. Keep only `entrypoint === 'claude-vscode'` sessions whose `cwd` is inside a workspace folder of this window (all of them when no folder is open).
+2. **Read live sessions** from `~/.claude/sessions/*.json`. Skip dead pids (`process.kill(pid, 0)`) and half-written files. Keep the `entrypoint === 'claude-vscode'` sessions that this window started (their Claude process is a child of this extension host), wherever they are now, plus those whose `cwd` is inside a workspace folder of this window (all of them when no folder is open). A session can leave the workspace folder: `EnterWorktree` moves it to another folder, and Claude Code then moves its transcript and `subagents/` folder to that folder's project folder (`windowSessions`).
 3. **Read each transcript** through `TranscriptCache` (re-read only when mtime or size changed).
 4. **Restored tabs**: tab titles that match no running session are looked up in the newest 200 transcripts of the workspace's project folders (`findByTitles`). These sessions have no process, so they show as `stopped`.
 5. **Match tabs to sessions** with `bindTabs` (§4.2).
@@ -267,7 +267,7 @@ VS Code gives extensions only a tab's title, so matching is by title.
 1. No matched session → `unknown`.
 2. Matched session with no running process → `stopped`.
 3. Running process: `busy` → `working`, `waiting` → `needs-input`, `idle` → `idle`.
-4. **Background work**: an `idle` session counts as `working` when its Claude process has a child shell from `~/.claude/shell-snapshots/` (a background command), or its `subagents/` folder has a `.meta.json` with `requestShape: "background"`, no `finished`, no `stoppedByUser`, modified after the process's `startedAt`. Both checks run only when at least one session is idle (the `ps` call takes about 25 ms).
+4. **Background work**: an `idle` session counts as `working` when its Claude process has a child shell from `~/.claude/shell-snapshots/` (a background command), or its `subagents/` folder has a `.meta.json` with `requestShape: "background"`, no `finished`, no `stoppedByUser`, modified after the process's `startedAt`. Only idle sessions are checked. The process list comes from the one `ps` call per refresh (about 25 ms).
 5. **Unanswered question**: if Claude's last main-chain reply was an `AskUserQuestion` and the status is `idle` or `stopped`, the status becomes `needs-input`. A reload can interrupt a question, yet Claude Code still shows the question form in the tab.
 6. **Done (unread)**: the panel keeps an in-memory `unread` set of session ids.
    - Added when the status (after rules 1–5) goes from `working` or `needs-input` to `idle`.
@@ -327,6 +327,7 @@ Saved under the workspaceState key `claudeTabGroups.state.v2`:
 | Idle while still working | The status file says `idle` as soon as Claude's turn ends, even with background work running | Background command + background agent checks (§4.4 rule 4) |
 | Background commands not seen | In Claude Code 2.1.308 a simple background command (e.g. `next dev`) replaces its zsh wrapper, so no `shell-snapshots` child exists. Compound ones (`cd x && y`) keep it | Accepted: long-running servers then show idle, which matches Claude waiting for you |
 | Old agent files | Claude Code versions before ~2.1.30x never wrote `finished`, so 400+ old agent files look "running" | Count only `.meta.json` files modified after the process's `startedAt` |
+| Session moved folders | A session ran `EnterWorktree` into a worktree folder next to the workspace folder (`/work/app` → `/work/app-feature`). Its status file's `cwd` changed, the panel kept only sessions inside the workspace folder, and its tab showed `unknown`: no spinner while it worked, ran helper agents or ran commands | A session belongs to the window whose extension host started it (parent pid), wherever its `cwd` is now. The folder rule stays too, and is the only rule without `ps`. 2 tests guard it |
 | Dull group colors | Theme color ids (`charts.*`) looked muddy and clashed with status colors | 16 fixed hex colors; no bright orange/green/blue |
 | `node --test test/` | Fails on Node 25 | `node --test test/*.test.js` |
 
@@ -335,7 +336,7 @@ Saved under the workspaceState key `claudeTabGroups.state.v2`:
 ## 6. Develop, test, release
 
 ```sh
-npm test                 # 34 unit tests, Node's built-in runner, no install needed
+npm test                 # 36 unit tests, Node's built-in runner, no install needed
 sh package.sh            # builds claude-tab-groups-<version>.vsix
 code --install-extension claude-tab-groups-<version>.vsix --force
 # then Developer: Reload Window (restarts running Claude sessions)
@@ -367,7 +368,8 @@ gh release create v<version> claude-tab-groups.vsix --title "v<version>" --notes
 - The badge appears only after the panel has been shown once in the window, because VS Code creates the webview view lazily.
 - Done marks are not saved across window reloads.
 - The panel's order does not change the editor tab order. To hide the tab strip, set `"workbench.editor.showTabs": "single"`.
-- The background-command check uses `ps`, so it is off on Windows (the rest should work but is untested there).
+- The background-command check and finding sessions that moved out of the workspace folder use `ps`, so both are off on Windows (the rest should work but is untested there).
+- A tab that VS Code restored after a reload, whose session had moved out of the workspace folders, shows `unknown` instead of `stopped`: the restored-tab lookup (§4.1 step 4) searches only the workspace's project folders.
 - **Open issue**: clicking an idle restored session sometimes flashes an error notification that disappears quickly. Its text has not been captured; no error appears in the VS Code or Claude Code logs. Suspects: the editor-group/index focus commands in `focusTab`, or Claude Code starting a restored session. A possible fix is focusing bound tabs with `claude-vscode.editor.open <sessionId>` instead, but only after the error text is known.
 
 ---
@@ -394,3 +396,4 @@ gh release create v<version> claude-tab-groups.vsix --title "v<version>" --notes
 | 0.3.2 | Idle sessions with a background command show as working |
 | 0.3.3 | Right-click → Copy Session ID |
 | 0.3.4 | Idle sessions with a background helper agent show as working |
+| 0.3.5 | Sessions that moved to another folder (`EnterWorktree`) keep their live status |

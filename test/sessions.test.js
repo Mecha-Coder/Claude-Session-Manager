@@ -114,12 +114,13 @@ test('restored tabs find their session by title, newest transcript first', () =>
 
 test('an idle session still running a background command shows as working, not idle', () => {
   // Lines as `ps -o ppid=,command=` printed them on 22 Oct for a session whose turn had ended while
-  // `bun run test:required` ran in the background. Its MCP servers are children of the same process.
+  // `bun run test:required` ran in the background, with each process's own pid added in front, as
+  // `readProcesses()` reads them now. Its MCP servers are children of the same process.
   const ps = [
-    '61217 /opt/homebrew/bin/uv tool uvx --from git+https://github.com/oraios/serena serena start-mcp-server',
-    '61217 npm exec @playwright/mcp@latest --output-dir /tmp/screenshot',
-    '61217 /bin/zsh -c source /Users/me/.claude/shell-snapshots/snapshot-zsh-1792623570980-z5f2zy.sh 2>/dev/null || true && eval \'bun run test:required\'',
-    '  4532 /opt/homebrew/bin/uv tool uvx mcp-proxy-for-aws==1.6.4',
+    '61230 61217 /opt/homebrew/bin/uv tool uvx --from git+https://github.com/oraios/serena serena start-mcp-server',
+    '61231 61217 npm exec @playwright/mcp@latest --output-dir /tmp/screenshot',
+    '61302 61217 /bin/zsh -c source /Users/me/.claude/shell-snapshots/snapshot-zsh-1792623570980-z5f2zy.sh 2>/dev/null || true && eval \'bun run test:required\'',
+    ' 4533  4532 /opt/homebrew/bin/uv tool uvx mcp-proxy-for-aws==1.6.4',
   ].join('\n');
   const background = sessions.backgroundPids(ps);
   assert.deepEqual([...background], [61217]);
@@ -148,4 +149,37 @@ test('an idle session with a background helper agent still running shows as work
   meta('running', { requestShape: 'background' });
   assert.equal(sessions.hasRunningAgent(dir, started), true);
   assert.equal(sessions.hasRunningAgent(path.join(dir, 'missing'), started), false);
+});
+
+test('a session that moved outside the workspace folder still belongs to the window that started it', () => {
+  // On 27 Oct a session ran EnterWorktree into a worktree folder next to the workspace folder. Its
+  // status file's cwd changed to that folder, the panel dropped the session, and its tab showed no
+  // status, so no spinner while it worked. Its Claude process was still a child of the window's
+  // extension host. Lines in the shape `ps -o pid=,ppid=,command=` prints (paths made up).
+  const claude = '/Users/me/.vscode/extensions/anthropic.claude-code-2.1.310-darwin-arm64/resources/native-binary/claude --output-format stream-json';
+  const ps = [
+    '  501     1 /Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper (Plugin).app/Contents/MacOS/Code Helper (Plugin) --type=utility',
+    `  610   501 ${claude}`,
+    `  620   501 ${claude}`,
+    `  700   502 ${claude}`,
+  ].join('\n');
+  const live = [
+    { pid: 610, sessionId: 'stayed', entrypoint: 'claude-vscode', cwd: '/work/app' },
+    { pid: 620, sessionId: 'moved', entrypoint: 'claude-vscode', cwd: '/work/app-feature' },
+    // Another window (extension host 502), in a folder whose name only starts like the workspace's.
+    { pid: 700, sessionId: 'other window', entrypoint: 'claude-vscode', cwd: '/work/app2' },
+  ];
+  const found = sessions.windowSessions(live, 501, sessions.parentPids(ps), ['/work/app']);
+  assert.deepEqual(found.map((s) => s.sessionId), ['stayed', 'moved']);
+});
+
+test('without the process list (no `ps`, e.g. Windows) sessions inside the workspace folders still count', () => {
+  const live = [
+    { pid: 610, sessionId: 'subfolder', entrypoint: 'claude-vscode', cwd: '/work/app/packages/api' },
+    { pid: 620, sessionId: 'moved', entrypoint: 'claude-vscode', cwd: '/work/app-feature' },
+    // A Claude session in a terminal has no Claude tab to match.
+    { pid: 630, sessionId: 'terminal', entrypoint: 'cli', cwd: '/work/app' },
+  ];
+  const found = sessions.windowSessions(live, 501, sessions.parentPids(''), ['/work/app']);
+  assert.deepEqual(found.map((s) => s.sessionId), ['subfolder']);
 });
