@@ -14,7 +14,7 @@ A VS Code sidebar that lists every open Claude Code tab with its live status, so
 - **Badge** on the sidebar icon counts the sessions that need you. **Search**, keyboard navigation, **Jump to session** (`Cmd+Alt+J`), **Copy Session ID**.
 - **Read-only and local**: it only reads files Claude Code already writes. No hooks, no settings changes, no network.
 
-> Personal project, not made by or affiliated with Anthropic. It reads files that Claude Code writes for its own use. They are not a public API, so a Claude Code update can break the panel. Built and tested on macOS with Claude Code 2.1.306–2.1.310.
+> Personal project, not made by or affiliated with Anthropic. It reads files that Claude Code writes for its own use. They are not a public API, so a Claude Code update can break the panel. Built and tested on macOS with Claude Code 2.1.306–2.1.312.
 
 ---
 
@@ -370,6 +370,7 @@ gh release create v<version> claude-tab-groups.vsix --title "v<version>" --notes
 - The panel's order does not change the editor tab order. To hide the tab strip, set `"workbench.editor.showTabs": "single"`.
 - The background-command check and finding sessions that moved out of the workspace folder use `ps`, so both are off on Windows (the rest should work but is untested there).
 - A tab that VS Code restored after a reload, whose session had moved out of the workspace folders, shows `unknown` instead of `stopped`: the restored-tab lookup (§4.1 step 4) searches only the workspace's project folders.
+- **Not yet confirmed in daily use**: 0.3.5 (sessions that moved folders). It passed its tests, and the real extension code run on live sessions showed a moved session as working instead of `unknown`, but nobody has yet watched a moved session in the panel itself. If one still shows no status, **Diagnose** lists it under "Running Claude sessions not shown as a tab"; then check that its Claude process's parent (`ps -o ppid= -p <pid>`, where the pid is the status file's name) is the window's extension host, the process the other sessions of that window run under.
 - **Open issue**: clicking an idle restored session sometimes flashes an error notification that disappears quickly. Its text has not been captured; no error appears in the VS Code or Claude Code logs. Suspects: the editor-group/index focus commands in `focusTab`, or Claude Code starting a restored session. A possible fix is focusing bound tabs with `claude-vscode.editor.open <sessionId>` instead, but only after the error text is known.
 
 ---
