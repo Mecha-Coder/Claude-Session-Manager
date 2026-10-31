@@ -74,7 +74,7 @@ Each row starts with a status mark. The status is live: it updates within about 
 | Bright green pulsing dot + green **Done** pill + bold title | `done` | Claude finished and you have not gone back to it yet | Let a session finish |
 | Small grey dot | `idle` | Idle and already seen | Open a Done session |
 | Hollow circle | `stopped` | A tab that VS Code restored after a reload; its Claude process starts when you open it | Reload the window, look before opening tabs |
-| Dashed circle | `unknown` | A tab not yet matched to a session (usually a brand-new "Claude Code" tab) | Open a new Claude tab |
+| Dashed circle | `unknown` | A tab not yet matched to a session: a brand-new "Claude Code" tab, or a new session in the 2–6 seconds before Claude Code gives it a title | Open a new Claude tab |
 | Box icon | (archived) | A session in the Archived section | Archive a session |
 
 - The **Needs input** and **Done** colors (`#ff9500`, `#3fd15a`) are fixed, not theme colors, so they stand out in every theme. No group color uses bright orange, green or blue, so groups never look like a status.
@@ -218,7 +218,7 @@ Right-click menu items are native VS Code menus: each element carries a `data-vs
 | `~/.claude/projects/<cwd with every non-alphanumeric char → "-">/<sessionId>.jsonl` (transcript) | Title: last `customTitle` (set by Claude Code's rename), else last `aiTitle`. Context size and model: last main-chain assistant line with `usage`. Whether that reply was an `AskUserQuestion`. Only the first 32 KB and last 256 KB are read. |
 | `<project folder>/<sessionId>/subagents/agent-<id>.meta.json` | `requestShape` (`background` / `foreground`), `finished`, `stoppedByUser`: is a background helper agent still running |
 | `ps -A -o pid=,ppid=,command=` (once per refresh) | A child of the Claude process whose command contains `/.claude/shell-snapshots/` is a shell Claude started, i.e. a running command. A Claude process whose parent is this window's extension host (`process.pid`, the process this extension runs in) is a session this window started |
-| Claude Code's webview tab | View type contains `claudeVSCodePanel`; tab title = session title cut to 25 characters (see §5) |
+| Claude Code's webview tab | View type contains `claudeVSCodePanel`; tab title = session title cut to 25 characters (see §5). A new tab is titled "Claude Code"; when you send the first prompt, the tab is titled with the prompt text until the AI title arrives 2–6 seconds later |
 | Command `claude-vscode.editor.open [sessionId]` | With no argument opens a new Claude tab; with a session id shows or reopens that session |
 
 Nothing is written into Claude Code: no hooks, no settings changes.
@@ -253,14 +253,15 @@ VS Code gives extensions only a tab's title, so matching is by title.
 - `cut(title)` reproduces Claude Code's tab title: empty → `"Claude Code"`; longer than 25 characters → first 24 + `"…"`.
 - Pass 1: a titled tab takes a free session with the same cut title, preferring the session it had last time, then a running one, then the most recently updated.
 - Pass 2: a tab whose title no session has yet (the transcript catches up a moment after a rename) keeps its previous session.
-- Pass 3: `"Claude Code"` tabs (no title yet) keep their previous untitled running session; otherwise they are paired only when exactly one such tab and exactly one untitled running session are left. The panel never guesses.
-- Unmatched tabs show as `unknown`.
+- There is no third pass: **a session with no title yet matches no tab.** Nothing a tab shows can prove which untitled session it holds. A new tab is titled "Claude Code", and right after your first prompt it is titled with the prompt text, which no transcript contains. Pairing by elimination ("one empty tab, one untitled session") was wrong whenever an unused "Claude Code" tab was open elsewhere, or the session ran in Claude Code's sidebar (see §5, "Session jumped to another group").
+- Unmatched tabs show as `unknown`. The new session's tab is matched by title as soon as the AI title reaches the transcript, 2–6 seconds after the first prompt.
 
 ### 4.3 Row keys
 
 - A matched tab's key is its **session id**. That is what the layout stores, so a session keeps its group across reloads.
 - An unmatched tab gets a temporary key `tab:<n>` that is never saved. It keeps its last key while its session is briefly unknown, so it does not jump around.
 - When a tab's key changes (temp → real, or `/clear` started a new session in the same tab), `model.renameKey` moves the new key into the old key's place.
+- A session's first place is permanent: once its key has a place, a later `renameKey` never moves it. So a session must only ever be matched to its own tab, or it keeps the wrong tab's group (§5).
 
 ### 4.4 Status rules, in order
 
@@ -328,6 +329,7 @@ Saved under the workspaceState key `claudeTabGroups.state.v2`:
 | Background commands not seen | In Claude Code 2.1.308 a simple background command (e.g. `next dev`) replaces its zsh wrapper, so no `shell-snapshots` child exists. Compound ones (`cd x && y`) keep it | Accepted: long-running servers then show idle, which matches Claude waiting for you |
 | Old agent files | Claude Code versions before ~2.1.30x never wrote `finished`, so 400+ old agent files look "running" | Count only `.meta.json` files modified after the process's `startedAt` |
 | Session moved folders | A session ran `EnterWorktree` into a worktree folder next to the workspace folder (`/work/app` → `/work/app-feature`). Its status file's `cwd` changed, the panel kept only sessions inside the workspace folder, and its tab showed `unknown`: no spinner while it worked, ran helper agents or ran commands | A session belongs to the window whose extension host started it (parent pid), wherever its `cwd` is now. The folder rule stays too, and is the only rule without `ps`. 2 tests guard it |
+| Session jumped to another group | 31 Oct 2026, up to 0.3.5: a new session started in one group showed there, then moved to another group a few seconds later, and stayed. An unused "Claude Code" tab was open in that group. On the first prompt Claude Code titled the real tab with the prompt text, so it no longer looked new; matching pass 3 then paired the only "Claude Code" tab left with the only untitled session, the wrong tab. The session took that tab's group for good (§4.3), and when its AI title arrived its real tab joined it there | A session with no title matches no tab (§4.2); its tab shows `unknown` for 2–6 seconds. A test reproduces the 31 Oct tabs and fails on 0.3.5 |
 | Dull group colors | Theme color ids (`charts.*`) looked muddy and clashed with status colors | 16 fixed hex colors; no bright orange/green/blue |
 | `node --test test/` | Fails on Node 25 | `node --test test/*.test.js` |
 
@@ -367,9 +369,11 @@ gh release create v<version> claude-tab-groups.vsix --title "v<version>" --notes
 - Background helper agents and compound background commands are detected; a simple background command (a server) is not (see §5).
 - The badge appears only after the panel has been shown once in the window, because VS Code creates the webview view lazily.
 - Done marks are not saved across window reloads.
+- A new session shows `unknown` (no spinner) from your first prompt until its AI title arrives, 2–6 seconds later; a new tab you have not typed in stays `unknown`. This is on purpose (§4.2).
 - The panel's order does not change the editor tab order. To hide the tab strip, set `"workbench.editor.showTabs": "single"`.
 - The background-command check and finding sessions that moved out of the workspace folder use `ps`, so both are off on Windows (the rest should work but is untested there).
 - A tab that VS Code restored after a reload, whose session had moved out of the workspace folders, shows `unknown` instead of `stopped`: the restored-tab lookup (§4.1 step 4) searches only the workspace's project folders.
+- **Not yet confirmed in daily use**: 0.3.6 (no matching of untitled sessions). It passed its tests, and the real 0.3.5 and 0.3.6 `extension.js` were run against a fake VS Code replaying the 31 Oct tabs: 0.3.5 saved the session in the wrong group, 0.3.6 in the right one. If a session still lands in the wrong group, **Diagnose** shows which session each tab was matched to; note which tabs were open when it moved.
 - **Not yet confirmed in daily use**: 0.3.5 (sessions that moved folders). It passed its tests, and the real extension code run on live sessions showed a moved session as working instead of `unknown`, but nobody has yet watched a moved session in the panel itself. If one still shows no status, **Diagnose** lists it under "Running Claude sessions not shown as a tab"; then check that its Claude process's parent (`ps -o ppid= -p <pid>`, where the pid is the status file's name) is the window's extension host, the process the other sessions of that window run under.
 - **Open issue**: clicking an idle restored session sometimes flashes an error notification that disappears quickly. Its text has not been captured; no error appears in the VS Code or Claude Code logs. Suspects: the editor-group/index focus commands in `focusTab`, or Claude Code starting a restored session. A possible fix is focusing bound tabs with `claude-vscode.editor.open <sessionId>` instead, but only after the error text is known.
 
@@ -398,3 +402,4 @@ gh release create v<version> claude-tab-groups.vsix --title "v<version>" --notes
 | 0.3.3 | Right-click → Copy Session ID |
 | 0.3.4 | Idle sessions with a background helper agent show as working |
 | 0.3.5 | Sessions that moved to another folder (`EnterWorktree`) keep their live status |
+| 0.3.6 | A new session no longer jumps into another group: a session with no title yet is not matched to any tab |

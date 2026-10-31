@@ -56,22 +56,27 @@ test('a renamed tab moves to the session that now has that title', () => {
   assert.equal(out.get(1), 'b');
 });
 
-test('a "Claude Code" tab pairs with an untitled running session only when there is exactly one of each', () => {
-  const one = bindTabs([{ id: 1, label: PLACEHOLDER }], [session('a', undefined)], new Map());
-  assert.equal(one.get(1), 'a');
+test('a session with no title yet is never given to a tab, because its own tab may already be named after the prompt', () => {
+  // Seen on 31 Oct 2026: you send the first prompt in tab 2, and Claude Code names that tab after the
+  // prompt at once; the AI title reaches the transcript a few seconds later. An unused "Claude Code"
+  // tab (tab 1) was still open in another group. Giving the new session to tab 1 put it in tab 1's
+  // group for good, so the row jumped to that group when the title arrived.
+  const out = bindTabs(
+    [{ id: 1, label: PLACEHOLDER }, { id: 2, label: 'Please refactor the logi…' }],
+    [session('new', undefined)],
+    new Map()
+  );
+  assert.equal(out.size, 0);
 
-  // Two new tabs and two untitled sessions: any pairing would be a guess, so none is made.
-  const two = bindTabs([{ id: 1, label: PLACEHOLDER }, { id: 2, label: PLACEHOLDER }], [session('a', undefined), session('b', undefined)], new Map());
-  assert.equal(two.size, 0);
-
-  // A pairing made earlier, while it was unambiguous, is kept.
-  const kept = bindTabs([{ id: 1, label: PLACEHOLDER }, { id: 2, label: PLACEHOLDER }], [session('a', undefined), session('b', undefined)], new Map([[1, 'b']]));
-  assert.equal(kept.get(1), 'b');
+  // One "Claude Code" tab and one untitled session are still not proof: the session may run in
+  // Claude Code's sidebar, or in a tab VS Code has not reported yet.
+  assert.equal(bindTabs([{ id: 1, label: PLACEHOLDER }], [session('new', undefined)], new Map()).size, 0);
 });
 
-test('a session that is not running never matches a "Claude Code" tab', () => {
-  const out = bindTabs([{ id: 1, label: PLACEHOLDER }], [session('a', undefined, false)], new Map());
-  assert.equal(out.size, 0);
+test('a new session reaches its own tab once its title arrives, even with an unused "Claude Code" tab open', () => {
+  const tabs = [{ id: 1, label: PLACEHOLDER }, { id: 2, label: 'Refactor the login form …' }];
+  const out = bindTabs(tabs, [session('new', 'Refactor the login form validation')], new Map());
+  assert.deepEqual([...out], [[2, 'new']]);
 });
 
 test('a running session wins over an old transcript with the same title', () => {

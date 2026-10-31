@@ -2,7 +2,7 @@
 	"name": "claude-tab-groups",
 	"displayName": "Claude Session Manager",
 	"description": "A vertical list of your open Claude Code sessions with live status, colored groups, pins and an archive — like tab groups in a browser.",
-	"version": "0.3.5",
+	"version": "0.3.6",
 	"publisher": "local",
 	"license": "MIT",
 	"repository": {

@@ -12,7 +12,7 @@ A VS Code extension: a sidebar listing open Claude Code tabs with live status, c
 - **Every change you install bumps `version` in `package.json`**, so VS Code replaces the old copy.
 - **UI changes need a visual check.** Load the panel in `docs/demo/hero.html` (or a copy with other mock data), take Playwright screenshots in dark and light themes, and look at them. If the change shows in the demo, re-run `node docs/demo/render.js` (see the file header for setup).
 - **Webview CSP**: set styles from JS (`el.style.setProperty`), never `style="…"` inside HTML strings. Don't move the page layout during `dragstart` (README §5).
-- **Claude Code internals** (status files, transcripts, helper-agent files, the 25-character tab-title cut, each session running as a child of the window's extension host) can change with any Claude Code update. When status looks wrong, check them again before changing logic. **Diagnose** in the panel's `…` menu shows how tabs were matched.
+- **Claude Code internals** (status files, transcripts, helper-agent files, the 25-character tab-title cut, a new tab titled with the first prompt until the AI title arrives, each session running as a child of the window's extension host) can change with any Claude Code update. When status looks wrong, check them again before changing logic. **Diagnose** in the panel's `…` menu shows how tabs were matched.
 - **Public repo**: demo data and test fixtures use made-up session titles and paths, never real work or company names.
 
 ## Owner decisions (don't re-add without asking)
